@@ -1,5 +1,5 @@
 /* ============================================================
-   Chicken Rights Labs — AI Governance Dashboard
+   Chicken Tights Labs — AI Governance Dashboard
    Application Logic
    ============================================================ */
 

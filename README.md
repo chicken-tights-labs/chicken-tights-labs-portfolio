@@ -1,4 +1,4 @@
-# Chicken Rights Labs — Portfolio Site
+# Chicken Tights Labs — Portfolio Site
 
 **AI Governance Dashboard & Salesforce Automation Portfolio**
 

@@ -1,5 +1,5 @@
 /* ============================================================
-   Chicken Rights Labs — AI Governance Dashboard
+   Chicken Tights Labs — AI Governance Dashboard
    Mock data for the live demo
    ============================================================ */
 
@@ -7,7 +7,7 @@ const aiModels = [
     {
         id: 'hermes-qa',
         name: 'Hermes-QA',
-        vendor: 'Chicken Rights Labs',
+        vendor: 'Chicken Tights Labs',
         useCase: 'Automated QA Testing Agent',
         riskLevel: 'Medium',
         owner: 'Maria Robbins',
@@ -41,7 +41,7 @@ const aiModels = [
     {
         id: 'complybot',
         name: 'ComplyBot',
-        vendor: 'Chicken Rights Labs',
+        vendor: 'Chicken Tights Labs',
         useCase: 'Automated Compliance Review',
         riskLevel: 'Low',
         owner: 'Maria Robbins',
@@ -75,7 +75,7 @@ const aiModels = [
     {
         id: 'audittrailai',
         name: 'AuditTrailAI',
-        vendor: 'Chicken Rights Labs',
+        vendor: 'Chicken Tights Labs',
         useCase: 'Automated Audit Logging',
         riskLevel: 'Low',
         owner: 'Maria Robbins',
