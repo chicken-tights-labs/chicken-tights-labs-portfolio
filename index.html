@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chicken Tights Labs — AI Agent Governance & Salesforce Automation</title>
-    <meta name="description" content="Maria Robbins — Senior Salesforce QA Automation Specialist building AI Agent Governance frameworks. Interactive dashboard demo showcasing agent ownership, responsible parties, and audit trails.">
+    <meta name="description" content="Maria Robbins — Senior Salesforce QA Automation Specialist building AI Agent Governance frameworks. Interactive dashboard demo showcasing agent ownership, RACI assignments, approval chains, and audit trails.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -30,7 +30,7 @@
     <section class="hero">
         <div class="hero-content">
             <h1>QA Engineering · AI Agent Governance · Salesforce Automation</h1>
-            <p class="hero-subtitle">Senior Salesforce QA specialist building governance frameworks for enterprise AI agent operations.</p>
+            <p class="hero-subtitle">Senior Salesforce QA specialist building governance frameworks for enterprise AI agent operations — focusing on agent ownership and RACI accountability.</p>
             <a href="#dashboard" class="cta-button">Explore My Agent Governance Demo →</a>
         </div>
         <div class="hero-decorative"></div>
@@ -41,12 +41,12 @@
         <div class="container">
             <div class="section-header">
                 <h2>About Me</h2>
-                <p class="section-subtitle">Quality infrastructure Specialist turning QA instincts into AI governance frameworks.</p>
+                <p class="section-subtitle">Quality infrastructure specialist turning QA instincts into AI governance frameworks for enterprise agentic operations.</p>
             </div>
             <div class="about-grid">
                 <div class="about-text">
                     <p>I'm a Senior QA software tester in the Salesforce ecosystem who learned the platform in 2023 and is now building expertise in AI agent orchestration and governance. My approach: weaponize a QA tester's instinct for "what breaks" to build better oversight for autonomous agents.</p>
-                    <p>I focus on a specific gap in the AI space: governance structure for agent ownership and responsible parties. Most frameworks talk about model compliance — I'm building systems that answer: who is accountable when an agent makes a bad call?</p>
+                    <p>I focus on a specific gap that most frameworks miss: <strong>who is accountable when an AI agent makes a bad call?</strong> I'm building systems around RACI assignments, approval chains, and clear escalation paths for enterprise AI agents.</p>
                     <p>Beyond code: I'm married, building NBS Gym (a fencing & boxing coaching facility in Lexington), and plotting a path to financial freedom. Chicken Tights Labs is my cheeky umbrella brand — my mom thought that's what was for dinner.</p>
                 </div>
                 <div class="timeline">
@@ -102,7 +102,7 @@
                     <h3>AI Agent Governance</h3>
                     <ul class="skill-list">
                         <li>Agent Ownership Models</li>
-                        <li>Responsible Party Definition</li>
+                        <li>Responsible Party Definition (RACI)</li>
                         <li>Change Management</li>
                         <li>Risk & Escalation Frameworks</li>
                         <li>Audit Trail & Accountability</li>
@@ -123,14 +123,14 @@
                 <div class="project-card">
                     <div class="project-tag">Live Demo</div>
                     <h3>AI Agent Governance Dashboard</h3>
-                    <p>Interactive demo showcasing agent ownership models, responsible parties, approval chains, and audit trails for enterprise AI agent operations.</p>
+                    <p>Interactive demo showcasing agent ownership models, RACI assignments, approval chains, and audit trails for enterprise AI agent operations. Register new agents, run governance checks, and see results logged.</p>
                     <a href="#dashboard" class="project-link">Try the Demo →</a>
                 </div>
                 <div class="project-card">
                     <div class="project-tag">In Progress</div>
-                    <h3>NBS Gym Trainer/Member App</h3>
-                    <p>A lightweight web app for trainers and members to manage bookings, attendance, and progress — integrating with Salesforce CRM backend to avoid per-user license costs.</p>
-                    <span class="project-meta">Salesforce Integration · Lightweight Web App · Phase 2</span>
+                    <h3>Boxing Fitness Gym App</h3>
+                    <p>Lightweight web app for trainers and members — attendance tracking, trainer clock-in, class scheduling — integrating with Salesforce CRM via REST API to avoid per-user license costs.</p>
+                    <span class="project-meta">Salesforce Integration · REST API · Phase 2</span>
                 </div>
                 <div class="project-card">
                     <div class="project-tag">Salesforce QA</div>
@@ -147,7 +147,7 @@
         <div class="container">
             <div class="section-header">
                 <h2>AI Agent Governance Dashboard</h2>
-                <p class="section-subtitle">A live demo of enterprise AI agent governance. Browse the agent registry, explore the ownership matrix, read governance policies, and run a governance check that logs results to the audit trail.</p>
+                <p class="section-subtitle">A live demo of enterprise AI agent governance. Browse the agent registry, explore the ownership matrix, register new agents, read governance policies, and run governance checks that log to the audit trail.</p>
             </div>
 
             <div class="dashboard">
@@ -155,6 +155,7 @@
                 <div class="tabs">
                     <button class="tab-btn active" data-tab="agents">AI Agent Registry</button>
                     <button class="tab-btn" data-tab="ownership">Ownership & Governance</button>
+                    <button class="tab-btn" data-tab="register">Register New Agent</button>
                     <button class="tab-btn" data-tab="policies">Governance Policies</button>
                     <button class="tab-btn" data-tab="audit">Audit Trail</button>
                 </div>
@@ -163,7 +164,7 @@
                 <div class="tab-content">
                     <!-- Agents Tab -->
                     <div id="agents-tab" class="tab-pane active">
-                        <p>Registered AI agents in the governance system. Each agent has a designated owner responsible for its behavior, approvals, and ongoing review.</p>
+                        <p>Registered AI agents in the governance system. Each agent has a designated owner and RACI assignment responsible for its behavior, approvals, and ongoing review.</p>
                         <div id="agents-table" class="table-wrapper"></div>
                     </div>
 
@@ -184,15 +185,56 @@
                                 <select id="agent-select" class="form-select"></select>
                             </div>
                             <button id="run-governance-check" class="primary-button">Run Governance Check</button>
-                            <p class="hint">Validates ownership, approval chain, review status, and monitoring against governance policies. Results are added to the audit trail.</p>
+                            <p class="hint">Validates ownership, RACI assignment, approval chain, review status, and monitoring against 9 governance policies. Results are added to the audit trail.</p>
                             <div id="results-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Register Agent Tab -->
+                    <div id="register-tab" class="tab-pane">
+                        <div class="governance-checker">
+                            <p>Register a new AI agent to add it to the governance system. The system automatically generates approval chains, RACI assignments, and review schedules based on risk level.</p>
+                            <form id="agent-registration-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="reg-name">Agent Name *</label>
+                                        <input type="text" id="reg-name" class="form-input" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="reg-type">Agent Type *</label>
+                                        <input type="text" id="reg-type" class="form-input" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="reg-owner">Owner *</label>
+                                        <input type="text" id="reg-owner" class="form-input" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="reg-department">Department *</label>
+                                        <select id="reg-department" class="form-select" required></select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="reg-risk">Risk Level *</label>
+                                        <select id="reg-risk" class="form-select" required></select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="reg-purpose">Purpose</label>
+                                        <input type="text" id="reg-purpose" class="form-input" placeholder="What does this agent do?">
+                                    </div>
+                                </div>
+                                <button type="submit" class="primary-button">Register Agent →</button>
+                                <div id="registration-result"></div>
+                            </form>
                         </div>
                     </div>
 
                     <!-- Policies Tab -->
                     <div id="policies-tab" class="tab-pane">
-                        <p>Governance policies that define how AI agents are owned, approved, monitored, and reviewed. Click any policy to read the full documentation.</p>
-                        <div id="policies-list"></div>
+                        <p>Governance policies that define how AI agents are owned, approved, monitored, and reviewed. Nine policies covering everything from RACI assignments to incident response. Click any policy to read the full documentation.</p>
+                        <div id="policies-list" class="policies-list"></div>
                     </div>
 
                     <!-- Audit Trail Tab -->
@@ -230,7 +272,7 @@
     <!-- Footer -->
     <footer>
         <p>&copy; 2026 Chicken Tights Labs. All rights reserved.</p>
-        <p><small>This AI Agent Governance Dashboard is a portfolio demo using mock data. It demonstrates governance logic that would connect to live Salesforce data via REST API in production.</small></p>
+        <p><small>This AI Agent Governance Dashboard is a portfolio demo using mock data. It demonstrates governance logic that would connect to live Salesforce data via REST API in production. All data persists in your browser's local storage.</small></p>
     </footer>
 
     <script src="js/data.js"></script>

@@ -1,8 +1,24 @@
 /* ============================================================
    Chicken Tights Labs — AI Agent Governance Dashboard
-   Mock data: AI agents, governance policies, audit records
+   Mock data: AI agents (with RACI), governance policies, audit records
    ============================================================ */
 
+/* ---- Department options for the registration form ---- */
+const departments = [
+    'Quality Engineering',
+    'IT',
+    'Sales',
+    'Marketing',
+    'Analytics',
+    'Operations',
+    'Legal',
+    'HR'
+];
+
+/* ---- Risk level options ---- */
+const riskLevels = ['Low', 'Medium', 'High', 'Critical'];
+
+/* ---- AI Agents Registry (8 agents with RACI assignments) ---- */
 const aiAgents = [
     {
         id: 'hermes-qa',
@@ -19,7 +35,13 @@ const aiAgents = [
         monitoring: 'Active',
         nextReview: '2026-12-01',
         lastReviewedBy: 'IT Security',
-        incidentResponse: 'Documented'
+        incidentResponse: 'Documented',
+        raci: {
+            r: 'QA Engineers',
+            a: 'Maria Robbins',
+            c: ['IT Security'],
+            i: ['DevOps Team']
+        }
     },
     {
         id: 'autodeploy-bot',
@@ -36,7 +58,13 @@ const aiAgents = [
         monitoring: 'Active',
         nextReview: '2026-10-15',
         lastReviewedBy: 'IT Security',
-        incidentResponse: 'Documented'
+        incidentResponse: 'Documented',
+        raci: {
+            r: 'DevOps Engineers',
+            a: 'DevOps Team Lead',
+            c: ['IT Security', 'Legal'],
+            i: ['All Developers']
+        }
     },
     {
         id: 'complybot',
@@ -53,7 +81,13 @@ const aiAgents = [
         monitoring: 'Active',
         nextReview: '2026-11-15',
         lastReviewedBy: 'Maria Robbins',
-        incidentResponse: 'Documented'
+        incidentResponse: 'Documented',
+        raci: {
+            r: 'Governance Team',
+            a: 'Maria Robbins',
+            c: ['IT Security'],
+            i: ['All Departments']
+        }
     },
     {
         id: 'fairlearn',
@@ -70,7 +104,13 @@ const aiAgents = [
         monitoring: 'Active',
         nextReview: '2026-09-20',
         lastReviewedBy: 'Maria Robbins',
-        incidentResponse: 'Documented'
+        incidentResponse: 'Documented',
+        raci: {
+            r: 'Data Scientists',
+            a: 'Data Science Lead',
+            c: ['IT Security'],
+            i: ['Product Managers']
+        }
     },
     {
         id: 'salesforce-predict',
@@ -87,7 +127,13 @@ const aiAgents = [
         monitoring: 'Active',
         nextReview: '2026-10-10',
         lastReviewedBy: 'Legal',
-        incidentResponse: 'Documented'
+        incidentResponse: 'Documented',
+        raci: {
+            r: 'Sales Operations',
+            a: 'Sarah Chen',
+            c: ['IT Security', 'Legal'],
+            i: ['Sales Leadership']
+        }
     },
     {
         id: 'leadscorer-pro',
@@ -98,13 +144,19 @@ const aiAgents = [
         riskLevel: 'Critical',
         status: 'Active',
         lastModified: '2026-08-15',
-        purpose: 'Customer lead qualification and scoring (ThirdLight AI)',
+        purpose: 'Customer lead qualification and scoring (ThirdLight AI vendor)',
         approvalStatus: 'Not Approved',
         approvalChain: ['Marketing Team', 'IT Security', 'Legal'],
         monitoring: 'Passive',
         nextReview: '2026-09-30',
         lastReviewedBy: 'IT Security',
-        incidentResponse: 'Not Documented'
+        incidentResponse: 'Not Documented',
+        raci: {
+            r: 'Marketing Analysts',
+            a: 'Marketing Team',
+            c: ['IT Security'],
+            i: []  // Missing Informed — governance gap
+        }
     },
     {
         id: 'audittrail-ai',
@@ -121,7 +173,13 @@ const aiAgents = [
         monitoring: 'Active',
         nextReview: '2026-10-15',
         lastReviewedBy: 'Maria Robbins',
-        incidentResponse: 'Documented'
+        incidentResponse: 'Documented',
+        raci: {
+            r: 'Security Team',
+            a: 'Maria Robbins',
+            c: ['IT Security'],
+            i: ['All Departments']
+        }
     },
     {
         id: 'contentbot',
@@ -138,10 +196,17 @@ const aiAgents = [
         monitoring: 'Passive',
         nextReview: '2026-10-20',
         lastReviewedBy: 'IT Security',
-        incidentResponse: 'Documented'
+        incidentResponse: 'Documented',
+        raci: {
+            r: '',  // Missing Responsible — governance gap
+            a: 'Marketing Team',
+            c: [],
+            i: ['Marketing Leadership']
+        }
     }
 ];
 
+/* ---- Governance Policies (9 policies including RACI) ---- */
 const governancePolicies = [
     {
         id: 'ownership',
@@ -153,6 +218,31 @@ const governancePolicies = [
         detail: (agent) => agent.owner
             ? `Owner: ${agent.owner} (${agent.department})`
             : 'No owner assigned — agent has no accountability'
+    },
+    {
+        id: 'raci',
+        name: 'RACI Assignment Policy',
+        category: 'Ownership',
+        description: 'Every AI agent must have a defined RACI matrix: Responsible (who operates the agent), Accountable (who is ultimately answerable), Consulted (who must be consulted before changes), and Informed (who receives notifications). This ensures clear accountability and communication for all agent lifecycle events.',
+        requirement: 'All four RACI roles must be populated for every agent.',
+        check: (agent) => {
+            if (!agent.raci) return false;
+            return !!(agent.raci.r && agent.raci.a &&
+                Array.isArray(agent.raci.c) && agent.raci.c.length > 0 &&
+                Array.isArray(agent.raci.i) && agent.raci.i.length > 0);
+        },
+        detail: (agent) => {
+            if (!agent.raci) return 'No RACI assignment — clear accountability gap';
+            const missing = [];
+            if (!agent.raci.r) missing.push('Responsible');
+            if (!agent.raci.a) missing.push('Accountable');
+            if (!agent.raci.c || !agent.raci.c.length) missing.push('Consulted');
+            if (!agent.raci.i || !agent.raci.i.length) missing.push('Informed');
+            if (missing.length === 0) {
+                return `RACI defined: R=${agent.raci.r}, A=${agent.raci.a}, C=[${agent.raci.c.join(', ')}], I=[${agent.raci.i.join(', ')}]`;
+            }
+            return `RACI incomplete — missing: ${missing.join(', ')}`;
+        }
     },
     {
         id: 'approval',
@@ -247,7 +337,7 @@ const governancePolicies = [
         category: 'Security',
         description: 'Agents must operate on least-privilege principles. Access to PII or sensitive data requires additional documentation and review by IT Security.',
         requirement: 'No excessive permissions. PII access requires documentation.',
-        check: () => true, // All agents in demo have least-privilege access
+        check: () => true,
         detail: () => 'Least-privilege access confirmed — no excessive permissions detected'
     },
     {
@@ -256,34 +346,43 @@ const governancePolicies = [
         category: 'Audit',
         description: 'All agent actions must be logged with timestamps, user context, and decision rationale. Logs must be retained for minimum 90 days and be searchable.',
         requirement: 'Full action logging enabled for all production agents.',
-        check: (agent) => agent.monitoring === 'Active',
         detail: (agent) => agent.monitoring === 'Active'
             ? 'Full audit trail enabled — all actions logged with timestamp and context'
             : `Logging status: ${agent.monitoring} — limited audit trail, remediation needed`
     }
 ];
 
-// Seed audit trail records (shown on initial load)
+/* ---- Seed Audit Trail Records ---- */
 const seedAuditRecords = [
     {
-        id: 9905,
-        timestamp: '2026-10-06T10:30:00Z',
+        id: 9906,
+        timestamp: '2026-10-06T14:20:00Z',
         action: 'Governance Check',
         agent: 'Hermes-QA',
         owner: 'Maria Robbins',
         reviewer: 'Anonymous Visitor',
         status: 'Compliant',
-        details: '8/8 policies passed, score: 100%'
+        details: '9/9 policies passed, score: 100%'
+    },
+    {
+        id: 9905,
+        timestamp: '2026-10-06T10:30:00Z',
+        action: 'Agent Registered',
+        agent: 'Hermes-QA',
+        owner: 'Maria Robbins',
+        reviewer: 'IT Security',
+        status: 'Approved',
+        details: 'New agent registered and approved for production use'
     },
     {
         id: 9904,
         timestamp: '2026-10-05T15:45:00Z',
-        action: 'Owner Assigned',
+        action: 'Policy Approved',
         agent: 'SalesforcePredict',
         owner: 'Sarah Chen',
-        reviewer: 'IT Manager',
-        status: 'Updated',
-        details: 'Ownership transferred from DevOps to Sales'
+        reviewer: 'Legal Team',
+        status: 'Approved',
+        details: 'Full approval chain completed'
     },
     {
         id: 9903,
@@ -293,26 +392,26 @@ const seedAuditRecords = [
         owner: 'Marketing Team',
         reviewer: 'Anonymous Visitor',
         status: 'Non-Compliant',
-        details: '4/8 policies failed, score: 50%'
+        details: '5/9 policies failed, score: 44%'
     },
     {
         id: 9902,
         timestamp: '2026-10-03T11:15:00Z',
+        action: 'Owner Changed',
+        agent: 'ComplyBot',
+        owner: 'Maria Robbins',
+        reviewer: 'IT Manager',
+        status: 'Updated',
+        details: 'Ownership transferred from IT to Quality Engineering'
+    },
+    {
+        id: 9901,
+        timestamp: '2026-10-02T14:30:00Z',
         action: 'Review Completed',
         agent: 'FairLearn',
         owner: 'Data Science Team',
         reviewer: 'Maria Robbins',
         status: 'Overdue',
         details: 'Review overdue by 18 days — remediation assigned'
-    },
-    {
-        id: 9901,
-        timestamp: '2026-10-02T14:30:00Z',
-        action: 'Agent Registered',
-        agent: 'Hermes-QA',
-        owner: 'Maria Robbins',
-        reviewer: 'IT Security',
-        status: 'Approved',
-        details: 'New agent registered and approved for production use'
     }
 ];

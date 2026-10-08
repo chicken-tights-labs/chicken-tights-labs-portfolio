@@ -1,6 +1,6 @@
 /* ============================================================
    Chicken Tights Labs — AI Agent Governance Dashboard
-   Application Logic: tabs, governance checks, audit trail
+   Application Logic: tabs, governance checks, agent registration
    ============================================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -12,39 +12,56 @@ const App = {
 
     auditRecords: [],
     auditKey: 'agentGovernanceAuditTrail',
+    registeredKey: 'registeredAgents',
+    mergedAgents: [],
 
     init() {
+        this.loadMergedAgents();
         this.renderAgentTable();
         this.renderOwnershipMatrix();
         this.renderPolicyDocs();
         this.loadAuditTrail();
         this.populateAgentSelect();
+        this.populateDepartmentSelect();
+        this.populateRiskSelect();
         this.bindEvents();
+    },
+
+    /* ---- Merge default + registered agents ---- */
+    loadMergedAgents() {
+        this.mergedAgents = [...aiAgents];
+        const stored = localStorage.getItem(this.registeredKey);
+        if (stored) {
+            const registered = JSON.parse(stored);
+            registered.forEach(agent => {
+                if (!this.mergedAgents.find(a => a.id === agent.id)) {
+                    this.mergedAgents.push(agent);
+                }
+            });
+        }
     },
 
     /* ---- Event Binding ---- */
     bindEvents() {
-        // Tab switching
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tabId = btn.dataset.tab;
-                this.switchTab(tabId, btn);
-            });
+            btn.addEventListener('click', () => this.switchTab(btn.dataset.tab, btn));
         });
 
-        // Mobile menu toggle
         const mobileMenuBtn = document.getElementById('mobileMenuBtn');
         if (mobileMenuBtn) {
             mobileMenuBtn.addEventListener('click', () => this.toggleMobileMenu());
         }
 
-        // Governance check
         const runCheckBtn = document.getElementById('run-governance-check');
         if (runCheckBtn) {
             runCheckBtn.addEventListener('click', () => this.runGovernanceCheck());
         }
 
-        // Smooth scroll for anchor links
+        const regForm = document.getElementById('agent-registration-form');
+        if (regForm) {
+            regForm.addEventListener('submit', (e) => this.handleRegistration(e));
+        }
+
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -71,21 +88,31 @@ const App = {
 
     /* ---- Agent Registry Table ---- */
     renderAgentTable() {
+        const container = document.getElementById('agents-table');
+        container.innerHTML = '';
         const table = this.createTable(
-            ['Agent', 'Type', 'Owner', 'Dept', 'Risk', 'Status', 'Approval', 'Next Review', 'Gov. Score'],
-            aiAgents.map(a => [
+            ['Agent', 'Type', 'Owner', 'Risk', 'RACI', 'Status', 'Gov. Score'],
+            this.mergedAgents.map(a => [
                 `<strong>${a.name}</strong>`,
                 a.type,
                 a.owner,
-                a.department,
                 `<span class="risk-badge ${a.riskLevel.toLowerCase()}">${a.riskLevel}</span>`,
+                this.getRACIStatus(a),
                 `<span class="status-${a.status.toLowerCase()}">${a.status}</span>`,
-                `<span class="status-${this.getApprovalStatusClass(a.approvalStatus)}">${a.approvalStatus}</span>`,
-                a.nextReview,
-                `<span class="status-${this.getAgentGovStatus(a).toLowerCase()}">${this.getAgentGovScore(a)}%</span>`
+                `<span class="status-${this.getAgentStatusClass(a)}">${this.getAgentGovScore(a)}%</span>`
             ])
         );
-        document.getElementById('agents-table').appendChild(table);
+        container.appendChild(table);
+    },
+
+    getRACIStatus(agent) {
+        if (!agent.raci) return '<span class="status-non-compliant">✗ Missing</span>';
+        const complete = agent.raci.r && agent.raci.a &&
+            Array.isArray(agent.raci.c) && agent.raci.c.length > 0 &&
+            Array.isArray(agent.raci.i) && agent.raci.i.length > 0;
+        return complete
+            ? '<span class="status-compliant">✓ Defined</span>'
+            : '<span class="status-at-risk">⚠ Incomplete</span>';
     },
 
     getAgentGovScore(agent) {
@@ -94,50 +121,54 @@ const App = {
         return Math.round((passed / checks.length) * 100);
     },
 
-    getAgentGovStatus(agent) {
+    getAgentStatusClass(agent) {
         const score = this.getAgentGovScore(agent);
-        if (score === 100) return 'Compliant';
-        if (score >= 75) return 'NeedsReview';
-        return 'NonCompliant';
-    },
-
-    getApprovalStatusClass(status) {
-        return status === 'Approved' ? 'compliant' :
-               status.includes('Pending') ? 'at-risk' :
-               'non-compliant';
+        if (score === 100) return 'compliant';
+        if (score >= 75) return 'at-risk';
+        return 'non-compliant';
     },
 
     /* ---- Ownership Matrix ---- */
     renderOwnershipMatrix() {
         const ownerMap = {};
-        aiAgents.forEach(agent => {
+        this.mergedAgents.forEach(agent => {
             if (!ownerMap[agent.owner]) {
                 ownerMap[agent.owner] = {
                     owner: agent.owner,
                     department: agent.department,
                     agents: [],
                     criticalCount: 0,
-                    highCount: 0
+                    highCount: 0,
+                    raciComplete: 0,
+                    raciTotal: 0
                 };
             }
             ownerMap[agent.owner].agents.push(agent.name);
             if (agent.riskLevel === 'Critical') ownerMap[agent.owner].criticalCount++;
             if (agent.riskLevel === 'High') ownerMap[agent.owner].highCount++;
+            ownerMap[agent.owner].raciTotal++;
+            if (agent.raci && agent.raci.r && agent.raci.a &&
+                Array.isArray(agent.raci.c) && agent.raci.c.length > 0 &&
+                Array.isArray(agent.raci.i) && agent.raci.i.length > 0) {
+                ownerMap[agent.owner].raciComplete++;
+            }
         });
 
         const owners = Object.values(ownerMap);
+        const container = document.getElementById('ownership-matrix');
+        container.innerHTML = '';
         const table = this.createTable(
-            ['Owner', 'Department', 'Agents', 'Critical Risk', 'High Risk', 'Total Agents'],
+            ['Owner', 'Department', 'Agents', 'Critical', 'High', 'RACI Coverage'],
             owners.map(o => [
                 `<strong>${o.owner}</strong>`,
                 o.department,
                 o.agents.length,
-                o.criticalCount > 0 ? `<span class="risk-badge critical">${o.criticalCount}</span>` : '0',
-                o.highCount > 0 ? `<span class="risk-badge high">${o.highCount}</span>` : '0',
-                o.agents.length
+                o.criticalCount > 0 ? `<span class="risk-badge critical">${o.criticalCount}</span>` : '—',
+                o.highCount > 0 ? `<span class="risk-badge high">${o.highCount}</span>` : '—',
+                `<span class="status-${o.raciComplete === o.raciTotal ? 'compliant' : 'at-risk'}">${o.raciComplete}/${o.raciTotal} agents</span>`
             ])
         );
-        document.getElementById('ownership-matrix').appendChild(table);
+        container.appendChild(table);
     },
 
     /* ---- Policy Documentation ---- */
@@ -160,7 +191,6 @@ const App = {
             </div>
         `).join('');
 
-        // Bind expand buttons
         container.querySelectorAll('.policy-expand-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const policyId = btn.dataset.policy;
@@ -175,19 +205,157 @@ const App = {
         });
     },
 
-    /* ---- Agent Select ---- */
+    /* ---- Agent Select (for governance check) ---- */
     populateAgentSelect() {
         const select = document.getElementById('agent-select');
-        select.innerHTML = aiAgents.map(a =>
+        select.innerHTML = this.mergedAgents.map(a =>
             `<option value="${a.id}">${a.name} (${a.type})</option>`
         ).join('');
+    },
+
+    /* ---- Register Form Population ---- */
+    populateDepartmentSelect() {
+        const select = document.getElementById('reg-department');
+        select.innerHTML = departments.map(d => `<option value="${d}">${d}</option>`).join('');
+    },
+
+    populateRiskSelect() {
+        const select = document.getElementById('reg-risk');
+        select.innerHTML = riskLevels.map(r => `<option value="${r}">${r}</option>`).join('');
+    },
+
+    /* ---- Registration Handler ---- */
+    handleRegistration(e) {
+        e.preventDefault();
+
+        const formData = {
+            name: document.getElementById('reg-name').value.trim(),
+            type: document.getElementById('reg-type').value.trim(),
+            owner: document.getElementById('reg-owner').value.trim(),
+            department: document.getElementById('reg-department').value,
+            riskLevel: document.getElementById('reg-risk').value,
+            purpose: document.getElementById('reg-purpose').value.trim()
+        };
+
+        if (!formData.name || !formData.type || !formData.owner || !formData.department || !formData.riskLevel) {
+            this.showRegistrationResult('Please fill in all required fields (marked with *).', 'error');
+            return;
+        }
+
+        const newAgent = this.generateAgentFromForm(formData);
+
+        // Save to localStorage
+        const stored = localStorage.getItem(this.registeredKey);
+        const registered = stored ? JSON.parse(stored) : [];
+        registered.push(newAgent);
+        localStorage.setItem(this.registeredKey, JSON.stringify(registered));
+
+        // Update and re-render
+        this.mergedAgents.push(newAgent);
+        this.renderAgentTable();
+        this.renderOwnershipMatrix();
+        this.populateAgentSelect();
+
+        // Log to audit trail
+        this.logAuditRecord({
+            action: 'Agent Registered',
+            agent: newAgent.name,
+            owner: newAgent.owner,
+            reviewer: 'Anonymous Visitor',
+            status: newAgent.status,
+            details: `New agent registered. Risk: ${newAgent.riskLevel}. Approval: ${newAgent.approvalStatus}. RACI: ${newAgent.raci ? 'Defined' : 'Missing'}`
+        });
+
+        // Show success
+        this.showRegistrationResult(
+            `Agent "${newAgent.name}" registered successfully!\n\n` +
+            `Auto-generated based on ${newAgent.riskLevel} risk level:\n` +
+            `  Approval chain: ${newAgent.approvalChain.join(' → ')}\n` +
+            `  Approval status: ${newAgent.approvalStatus}\n` +
+            `  Monitoring: ${newAgent.monitoring}\n` +
+            `  Next review: ${newAgent.nextReview}\n` +
+            `  RACI: R=${newAgent.raci.r}, A=${newAgent.raci.a}`,
+            'success'
+        );
+
+        // Switch to audit tab
+        const auditTab = document.querySelector('.tab-btn[data-tab="audit"]');
+        if (auditTab) this.switchTab('audit', auditTab);
+
+        // Reset form
+        e.target.reset();
+    },
+
+    generateAgentFromForm(formData) {
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+
+        const reviewDays = (formData.riskLevel === 'High' || formData.riskLevel === 'Critical') ? 30 : 90;
+        const nextReview = new Date(today.getTime() + reviewDays * 24 * 60 * 60 * 1000);
+        const nextReviewStr = nextReview.toISOString().split('T')[0];
+
+        const approvalChain = [formData.owner];
+        if (formData.riskLevel === 'Medium' || formData.riskLevel === 'High' || formData.riskLevel === 'Critical') {
+            approvalChain.push('IT Security');
+        }
+        if (formData.riskLevel === 'High' || formData.riskLevel === 'Critical') {
+            approvalChain.push('Legal');
+        }
+
+        const approvalStatus = (formData.riskLevel === 'High' || formData.riskLevel === 'Critical')
+            ? 'Pending Legal Review' : 'Approved';
+
+        const consultedList = [];
+        if (formData.riskLevel === 'High' || formData.riskLevel === 'Critical') {
+            consultedList.push('IT Security', 'Legal');
+        } else if (formData.riskLevel === 'Medium') {
+            consultedList.push('IT Security');
+        }
+
+        const informedList = [];
+        if (formData.department === 'IT') {
+            informedList.push('CTO');
+        } else {
+            informedList.push(formData.department + ' Leadership');
+        }
+
+        return {
+            id: 'custom-' + Date.now(),
+            name: formData.name,
+            type: formData.type,
+            owner: formData.owner,
+            department: formData.department,
+            riskLevel: formData.riskLevel,
+            status: 'Pending',
+            lastModified: todayStr,
+            purpose: formData.purpose || 'Not specified',
+            approvalStatus: approvalStatus,
+            approvalChain: approvalChain,
+            monitoring: 'Active',
+            nextReview: nextReviewStr,
+            lastReviewedBy: formData.owner,
+            incidentResponse: 'Not Documented',
+            raci: {
+                r: formData.department + ' Team',
+                a: formData.owner,
+                c: consultedList,
+                i: informedList
+            }
+        };
+    },
+
+    showRegistrationResult(message, type) {
+        const container = document.getElementById('registration-result');
+        container.innerHTML = `
+            <div class="${type === 'success' ? 'success-message' : 'error-message'}">${message.replace(/\n/g, '<br>')}</div>
+        `;
     },
 
     /* ---- Governance Check ---- */
     runGovernanceCheck() {
         const select = document.getElementById('agent-select');
         const agentId = select.value;
-        const agent = aiAgents.find(a => a.id === agentId);
+        const agent = this.mergedAgents.find(a => a.id === agentId);
         if (!agent) return;
 
         const btn = document.getElementById('run-governance-check');
@@ -299,13 +467,12 @@ const App = {
 
     renderAuditTable() {
         const records = this.auditRecords
-            .slice()
-            .reverse()
+            .slice().reverse()
             .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
         const container = document.getElementById('audit-table');
         if (records.length === 0) {
-            container.innerHTML = '<p style="color: #a0a0b0; padding: 2rem;">No audit records yet. Run a governance check to create one.</p>';
+            container.innerHTML = '<p style="color: #a0a0b0; padding: 2rem;">No audit records yet. Register an agent or run a governance check to create one.</p>';
             return;
         }
 
@@ -334,9 +501,9 @@ const App = {
     },
 
     getAuditStatusClass(status) {
-        return status === 'Approved' || status === 'Compliant' ? 'compliant' :
-               status === 'Needs Review' || status === 'Updated' || status === 'Overdue' ? 'at-risk' :
-               'non-compliant';
+        if (status === 'Approved' || status === 'Compliant') return 'compliant';
+        if (status === 'Needs Review' || status === 'Updated' || status === 'Overdue' || status === 'Pending') return 'at-risk';
+        return 'non-compliant';
     },
 
     logAuditRecord(record) {
