@@ -1,6 +1,6 @@
 /* ============================================================
-   Chicken Tights Labs — AI Governance Dashboard
-   Application Logic
+   Chicken Tights Labs — AI Agent Governance Dashboard
+   Application Logic: tabs, governance checks, audit trail
    ============================================================ */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,36 +10,38 @@ document.addEventListener('DOMContentLoaded', () => {
 /* ---- App Module ---- */
 const App = {
 
+    auditRecords: [],
+    auditKey: 'agentGovernanceAuditTrail',
+
     init() {
-        this.renderModelTable();
-        this.populateModelSelect();
+        this.renderAgentTable();
+        this.renderOwnershipMatrix();
+        this.renderPolicyDocs();
         this.loadAuditTrail();
+        this.populateAgentSelect();
         this.bindEvents();
     },
 
     /* ---- Event Binding ---- */
     bindEvents() {
         // Tab switching
-        const tabButtons = document.querySelectorAll('.tab-btn');
-        tabButtons.forEach(btn => {
+        document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const tabId = btn.dataset.tab;
-                App.switchTab(tabId, btn);
+                this.switchTab(tabId, btn);
             });
         });
 
         // Mobile menu toggle
         const mobileMenuBtn = document.getElementById('mobileMenuBtn');
         if (mobileMenuBtn) {
-            mobileMenuBtn.addEventListener('click', () => {
-                App.toggleMobileMenu();
-            });
+            mobileMenuBtn.addEventListener('click', () => this.toggleMobileMenu());
         }
 
-        // Compliance check
-        const runCheckBtn = document.getElementById('run-check-btn');
+        // Governance check
+        const runCheckBtn = document.getElementById('run-governance-check');
         if (runCheckBtn) {
-            runCheckBtn.addEventListener('click', () => App.runComplianceCheck());
+            runCheckBtn.addEventListener('click', () => this.runGovernanceCheck());
         }
 
         // Smooth scroll for anchor links
@@ -47,23 +49,16 @@ const App = {
             anchor.addEventListener('click', (e) => {
                 e.preventDefault();
                 const target = document.querySelector(anchor.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth' });
-                }
+                if (target) target.scrollIntoView({ behavior: 'smooth' });
             });
         });
     },
 
     /* ---- Tab Switching ---- */
     switchTab(tabId, clickedBtn) {
-        // Update active tab button
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         clickedBtn.classList.add('active');
-
-        // Show correct pane
-        document.querySelectorAll('.tab-pane').forEach(pane => {
-            pane.classList.remove('active');
-        });
+        document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
         document.getElementById(`${tabId}-tab`)?.classList.add('active');
     },
 
@@ -74,118 +69,165 @@ const App = {
         }
     },
 
-    /* ---- Model Table ---- */
-    renderModelTable() {
-        const table = document.createElement('table');
-        table.className = 'data-table';
-        table.innerHTML = `
-            <thead>
-                <tr>
-                    <th>Model</th>
-                    <th>Vendor</th>
-                    <th>Use Case</th>
-                    <th>Risk Level</th>
-                    <th>Owner</th>
-                    <th>Last Reviewed</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${aiModels.map(model => `
-                    <tr>
-                        <td><strong>${model.name}</strong></td>
-                        <td>${model.vendor}</td>
-                        <td>${model.useCase}</td>
-                        <td><span class="risk-badge ${model.riskLevel.toLowerCase()}">${model.riskLevel}</span></td>
-                        <td>${model.owner}</td>
-                        <td>${model.lastReviewed}</td>
-                        <td><span class="status-${this.getStatusClass(model)}">${this.getModelStatus(model)}</span></td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        `;
-        document.getElementById('models-table').appendChild(table);
+    /* ---- Agent Registry Table ---- */
+    renderAgentTable() {
+        const table = this.createTable(
+            ['Agent', 'Type', 'Owner', 'Dept', 'Risk', 'Status', 'Approval', 'Next Review', 'Gov. Score'],
+            aiAgents.map(a => [
+                `<strong>${a.name}</strong>`,
+                a.type,
+                a.owner,
+                a.department,
+                `<span class="risk-badge ${a.riskLevel.toLowerCase()}">${a.riskLevel}</span>`,
+                `<span class="status-${a.status.toLowerCase()}">${a.status}</span>`,
+                `<span class="status-${this.getApprovalStatusClass(a.approvalStatus)}">${a.approvalStatus}</span>`,
+                a.nextReview,
+                `<span class="status-${this.getAgentGovStatus(a).toLowerCase()}">${this.getAgentGovScore(a)}%</span>`
+            ])
+        );
+        document.getElementById('agents-table').appendChild(table);
     },
 
-    getModelStatus(model) {
-        const checks = compliancePolicies.map(policy => policy.check(model));
+    getAgentGovScore(agent) {
+        const checks = governancePolicies.map(p => p.check(agent));
         const passed = checks.filter(Boolean).length;
-        const score = Math.round((passed / checks.length) * 100);
+        return Math.round((passed / checks.length) * 100);
+    },
 
+    getAgentGovStatus(agent) {
+        const score = this.getAgentGovScore(agent);
         if (score === 100) return 'Compliant';
-        if (score >= 75) return 'At Risk';
-        return 'Non-Compliant';
+        if (score >= 75) return 'NeedsReview';
+        return 'NonCompliant';
     },
 
-    getStatusClass(model) {
-        const status = this.getModelStatus(model);
-        return status === 'Compliant' ? 'compliant' :
-               status === 'At Risk' ? 'at-risk' : 'non-compliant';
+    getApprovalStatusClass(status) {
+        return status === 'Approved' ? 'compliant' :
+               status.includes('Pending') ? 'at-risk' :
+               'non-compliant';
     },
 
-    /* ---- Model Select ---- */
-    populateModelSelect() {
-        const select = document.getElementById('model-select');
-        select.innerHTML = aiModels.map(model =>
-            `<option value="${model.id}">${model.name} (${model.vendor})</option>`
+    /* ---- Ownership Matrix ---- */
+    renderOwnershipMatrix() {
+        const ownerMap = {};
+        aiAgents.forEach(agent => {
+            if (!ownerMap[agent.owner]) {
+                ownerMap[agent.owner] = {
+                    owner: agent.owner,
+                    department: agent.department,
+                    agents: [],
+                    criticalCount: 0,
+                    highCount: 0
+                };
+            }
+            ownerMap[agent.owner].agents.push(agent.name);
+            if (agent.riskLevel === 'Critical') ownerMap[agent.owner].criticalCount++;
+            if (agent.riskLevel === 'High') ownerMap[agent.owner].highCount++;
+        });
+
+        const owners = Object.values(ownerMap);
+        const table = this.createTable(
+            ['Owner', 'Department', 'Agents', 'Critical Risk', 'High Risk', 'Total Agents'],
+            owners.map(o => [
+                `<strong>${o.owner}</strong>`,
+                o.department,
+                o.agents.length,
+                o.criticalCount > 0 ? `<span class="risk-badge critical">${o.criticalCount}</span>` : '0',
+                o.highCount > 0 ? `<span class="risk-badge high">${o.highCount}</span>` : '0',
+                o.agents.length
+            ])
+        );
+        document.getElementById('ownership-matrix').appendChild(table);
+    },
+
+    /* ---- Policy Documentation ---- */
+    renderPolicyDocs() {
+        const container = document.getElementById('policies-list');
+        container.innerHTML = governancePolicies.map((policy, index) => `
+            <div class="policy-card" data-policy="${policy.id}">
+                <div class="policy-header">
+                    <span class="policy-number">${index + 1}</span>
+                    <h4>${policy.name}</h4>
+                    <span class="policy-category">${policy.category}</span>
+                </div>
+                <p class="policy-description">${policy.description}</p>
+                <button class="policy-expand-btn" data-policy="${policy.id}">Read Full Documentation</button>
+                <div id="policy-detail-${policy.id}" class="policy-detail hidden">
+                    <p><strong>Requirement:</strong> ${policy.requirement}</p>
+                    <p><strong>Implementation:</strong> Agents are automatically validated against this policy during governance checks. Failures trigger escalation to the agent owner and IT Security.</p>
+                    <p><strong>Last Updated:</strong> October 2026</p>
+                </div>
+            </div>
+        `).join('');
+
+        // Bind expand buttons
+        container.querySelectorAll('.policy-expand-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const policyId = btn.dataset.policy;
+                const detail = document.getElementById(`policy-detail-${policyId}`);
+                if (detail) {
+                    detail.classList.toggle('hidden');
+                    btn.textContent = detail.classList.contains('hidden')
+                        ? 'Read Full Documentation'
+                        : 'Hide Documentation';
+                }
+            });
+        });
+    },
+
+    /* ---- Agent Select ---- */
+    populateAgentSelect() {
+        const select = document.getElementById('agent-select');
+        select.innerHTML = aiAgents.map(a =>
+            `<option value="${a.id}">${a.name} (${a.type})</option>`
         ).join('');
     },
 
-    /* ---- Compliance Check ---- */
-    runComplianceCheck() {
-        const select = document.getElementById('model-select');
-        const modelId = select.value;
-        const model = aiModels.find(m => m.id === modelId);
+    /* ---- Governance Check ---- */
+    runGovernanceCheck() {
+        const select = document.getElementById('agent-select');
+        const agentId = select.value;
+        const agent = aiAgents.find(a => a.id === agentId);
+        if (!agent) return;
 
-        if (!model) return;
-
-        // Disable button during check
-        const btn = document.getElementById('run-check-btn');
+        const btn = document.getElementById('run-governance-check');
         btn.disabled = true;
-        btn.textContent = 'Running Compliance Check...';
+        btn.textContent = 'Running Governance Check...';
 
-        // Simulate processing time
         setTimeout(() => {
-            const results = this.evaluateCompliance(model);
-            this.displayResults(model, results);
+            const results = this.evaluateGovernance(agent);
+            this.displayGovernanceResults(agent, results);
 
-            // Log to audit trail
             const passedCount = results.checks.filter(c => c.passed).length;
-            const failedCount = results.total - passedCount;
             const score = Math.round((passedCount / results.total) * 100);
-            const status = score === 100 ? 'Compliant' : score >= 75 ? 'At Risk' : 'Non-Compliant';
+            const status = score === 100 ? 'Compliant' : score >= 75 ? 'NeedsReview' : 'Non-Compliant';
 
             this.logAuditRecord({
-                modelName: model.name,
-                policiesChecked: results.total,
-                passed: passedCount,
-                failed: failedCount,
-                score: score,
+                action: 'Governance Check',
+                agent: agent.name,
+                owner: agent.owner,
+                reviewer: 'Anonymous Visitor',
                 status: status,
-                reviewer: 'Anonymous Visitor'
+                details: `${passedCount}/${results.total} policies passed, score: ${score}%`
             });
 
-            // Re-enable button
             btn.disabled = false;
-            btn.textContent = 'Run Compliance Check';
+            btn.textContent = 'Run Governance Check';
 
-            // Switch to audit tab
             const auditTab = document.querySelector('.tab-btn[data-tab="audit"]');
-            if (auditTab) {
-                this.switchTab('audit', auditTab);
-            }
+            if (auditTab) this.switchTab('audit', auditTab);
         }, 800);
     },
 
-    evaluateCompliance(model) {
-        const checks = compliancePolicies.map(policy => {
-            const passed = policy.check(model);
+    evaluateGovernance(agent) {
+        const checks = governancePolicies.map(policy => {
+            const passed = policy.check(agent);
             return {
                 id: policy.id,
                 name: policy.name,
-                severity: policy.severity,
+                category: policy.category,
                 passed: passed,
-                detail: policy.detail(model)
+                detail: policy.detail(agent)
             };
         });
 
@@ -193,7 +235,7 @@ const App = {
         const score = Math.round((passedCount / checks.length) * 100);
         let overallStatus;
         if (score === 100) overallStatus = 'Compliant';
-        else if (score >= 75) overallStatus = 'At Risk';
+        else if (score >= 75) overallStatus = 'Needs Review';
         else overallStatus = 'Non-Compliant';
 
         return {
@@ -206,43 +248,38 @@ const App = {
         };
     },
 
-    displayResults(model, results) {
+    displayGovernanceResults(agent, results) {
         const container = document.getElementById('results-container');
         const statusClass = results.status === 'Compliant' ? 'status-compliant' :
-                           results.status === 'At Risk' ? 'status-at-risk' :
+                           results.status === 'Needs Review' ? 'status-at-risk' :
                            'status-non-compliant';
         const scoreColor = results.status === 'Compliant' ? '#22c55e' :
-                          results.status === 'At Risk' ? '#f59e0b' : '#ef4444';
+                          results.status === 'Needs Review' ? '#f59e0b' : '#ef4444';
 
         container.innerHTML = `
-            <div class="results-container">
-                <div class="score-card">
-                    <div class="score-header">
-                        <h3>${model.name} — Compliance Report</h3>
-                        <span class="score-badge ${statusClass}">${results.status}</span>
-                    </div>
-
-                    <div class="score-bar">
-                        <div class="score-fill" style="width: ${results.score}%; background: ${scoreColor};"></div>
-                    </div>
-
-                    <p style="margin-bottom: 1.5rem; color: #a0a0b0;">
-                        Score: ${results.score}% — ${results.passed}/${results.total} policies passed
-                    </p>
-
-                    <div class="checks-list">
-                        ${results.checks.map(check => `
-                            <div class="check-item">
-                                <div class="check-icon ${check.passed ? 'pass' : 'fail'}">
-                                    ${check.passed ? '✓' : '✗'}
-                                </div>
-                                <div class="check-detail">
-                                    <div class="check-label">${check.name} <span style="color: #606070; font-weight: normal;">(Severity: ${check.severity})</span></div>
-                                    <p style="color: #a0a0b0; margin-top: 0.2rem;">${check.detail}</p>
-                                </div>
+            <div class="score-card">
+                <div class="score-header">
+                    <h3>${agent.name} — Governance Assessment</h3>
+                    <span class="score-badge ${statusClass}">${results.status}</span>
+                </div>
+                <div class="score-bar">
+                    <div class="score-fill" style="width: ${results.score}%; background: ${scoreColor};"></div>
+                </div>
+                <p style="margin-bottom: 1.5rem; color: #a0a0b0;">
+                    Governance Score: ${results.score}% — ${results.passed}/${results.total} policies passed
+                </p>
+                <div class="checks-list">
+                    ${results.checks.map(check => `
+                        <div class="check-item">
+                            <div class="check-icon ${check.passed ? 'pass' : 'fail'}">
+                                ${check.passed ? '✓' : '✗'}
                             </div>
-                        `).join('')}
-                    </div>
+                            <div class="check-detail">
+                                <div class="check-label">${check.name} <span style="color: #606070; font-weight: normal;">(${check.category})</span></div>
+                                <p style="color: #a0a0b0; margin-top: 0.2rem;">${check.detail}</p>
+                            </div>
+                        </div>
+                    `).join('')}
                 </div>
             </div>
         `;
@@ -250,77 +287,55 @@ const App = {
 
     /* ---- Audit Trail ---- */
     loadAuditTrail() {
-        const stored = localStorage.getItem('auditTrail');
+        const stored = localStorage.getItem(this.auditKey);
         if (stored) {
             this.auditRecords = JSON.parse(stored);
         } else {
             this.auditRecords = [...seedAuditRecords];
-            localStorage.setItem('auditTrail', JSON.stringify(this.auditRecords));
+            localStorage.setItem(this.auditKey, JSON.stringify(this.auditRecords));
         }
         this.renderAuditTable();
     },
 
     renderAuditTable() {
-        const container = document.getElementById('audit-table');
         const records = this.auditRecords
             .slice()
             .reverse()
             .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
+        const container = document.getElementById('audit-table');
         if (records.length === 0) {
-            container.innerHTML = '<p style="color: #a0a0b0; padding: 2rem;">No audit records yet. Run a compliance check to create one.</p>';
+            container.innerHTML = '<p style="color: #a0a0b0; padding: 2rem;">No audit records yet. Run a governance check to create one.</p>';
             return;
         }
 
-        const table = document.createElement('table');
-        table.className = 'data-table';
-        table.innerHTML = `
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Timestamp</th>
-                    <th>Model</th>
-                    <th>Policies Checked</th>
-                    <th>Passed</th>
-                    <th>Failed</th>
-                    <th>Score</th>
-                    <th>Status</th>
-                    <th>Reviewer</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${records.map((record, index) => {
-                    const date = new Date(record.timestamp);
-                    const formattedDate = date.toLocaleString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-                    return `
-                        <tr>
-                            <td>${records.length - index}</td>
-                            <td>${formattedDate}</td>
-                            <td><strong>${record.modelName}</strong></td>
-                            <td>${record.policiesChecked}</td>
-                            <td class="status-compliant">${record.passed}</td>
-                            <td class="status-non-compliant">${record.failed}</td>
-                            <td>${record.score}%</td>
-                            <td><span class="status-${this.getAuditStatusClass(record.status)}">${record.status}</span></td>
-                            <td>${record.reviewer}</td>
-                        </tr>
-                    `;
-                }).join('')}
-            </tbody>
-        `;
+        const table = this.createTable(
+            ['#', 'Timestamp', 'Action', 'Agent', 'Owner', 'Reviewer', 'Status'],
+            records.map((record, index) => {
+                const date = new Date(record.timestamp);
+                const formattedDate = date.toLocaleString('en-US', {
+                    year: 'numeric', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
+                return [
+                    records.length - index,
+                    formattedDate,
+                    record.action,
+                    `<strong>${record.agent}</strong>`,
+                    record.owner,
+                    record.reviewer,
+                    `<span class="status-${this.getAuditStatusClass(record.status)}">${record.status}</span>`
+                ];
+            })
+        );
+
         container.innerHTML = '';
         container.appendChild(table);
     },
 
     getAuditStatusClass(status) {
-        return status === 'Compliant' ? 'compliant' :
-               status === 'At Risk' ? 'at-risk' :
+        return status === 'Approved' || status === 'Compliant' ? 'compliant' :
+               status === 'Needs Review' || status === 'Updated' || status === 'Overdue' ? 'at-risk' :
                'non-compliant';
     },
 
@@ -330,13 +345,20 @@ const App = {
             timestamp: new Date().toISOString(),
             ...record
         };
-
-        if (!this.auditRecords) {
-            this.auditRecords = [];
-        }
-
+        if (!this.auditRecords) this.auditRecords = [];
         this.auditRecords.unshift(newRecord);
-        localStorage.setItem('auditTrail', JSON.stringify(this.auditRecords));
+        localStorage.setItem(this.auditKey, JSON.stringify(this.auditRecords));
         this.renderAuditTable();
+    },
+
+    /* ---- Utility: Create Table ---- */
+    createTable(headers, rows) {
+        const table = document.createElement('table');
+        table.className = 'data-table';
+        table.innerHTML = `
+            <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+            <tbody>${rows.map(row => `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody>
+        `;
+        return table;
     }
 };
